@@ -1,0 +1,20 @@
+timezone: "Asia/Shanghai"
+work_hours:
+  start: "09:00"
+  end: "18:00"
+checkpoints:
+  morning: "08:30"
+  afternoon: "14:00"
+  evening: "20:00"
+dida365:
+  project_name: "TaskPilot"
+  report_project: "Reports"
+  tags:
+    work: "work"
+    life: "life"
+  # client_id: ""       # Or set DIDA365_CLIENT_ID env var
+  # client_secret: ""   # Or set DIDA365_CLIENT_SECRET env var
+  # token_path: ""      # Or set DIDA365_TOKEN_PATH env var
+reports_dir: "reports"
+token_budget:
+  checkpoint_max_tokens: 2000

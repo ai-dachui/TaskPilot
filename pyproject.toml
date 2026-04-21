@@ -1,0 +1,13 @@
+[project]
+name = "taskpilot"
+version = "0.1.0"
+description = "Intelligent task planning assistant powered by OpenClaw + Dida365"
+requires-python = ">=3.9"
+dependencies = ["pyyaml>=6.0", "tzdata>=2023.3"]
+
+[project.scripts]
+taskpilot = "taskpilot.cli:main"
+
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"

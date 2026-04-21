@@ -1,0 +1,17 @@
+__pycache__/
+*.pyc
+*.pyo
+
+# Config and tokens (contain secrets)
+config.json
+token.json
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
