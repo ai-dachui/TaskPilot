@@ -21,3 +21,12 @@ Desktop.ini
 
 # Env
 .env
+
+# OpenClaw agent runtime
+memory/
+.openclaw/
+__pycache__/
+*.pyc
+HEARTBEAT.md
+TOOLS.md
+DREAMS.md
