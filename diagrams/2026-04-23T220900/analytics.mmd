@@ -1,0 +1,22 @@
+flowchart LR
+    subgraph Input["输入"]
+        TASKS["任务列表"]
+        STATE["state.json"]
+        PROG["进度统计"]
+    end
+
+    subgraph Engine["analytics.py"]
+        URG["紧急度评分\n0-100"]
+        TREND["趋势分析"]
+        ANOMALY["异常检测"]
+        AWARE["意识判断"]
+        INSIGHT["洞察生成"]
+    end
+
+    TASKS --> URG
+    STATE --> TREND
+    PROG --> ANOMALY
+    STATE --> AWARE
+    PROG --> AWARE
+    TREND --> INSIGHT
+    ANOMALY --> INSIGHT

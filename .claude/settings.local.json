@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git rm:*)",
+      "Bash(rm -rf vendor/dida365-openapi/.git)",
+      "Bash(git add:*)"
+    ]
+  }
+}

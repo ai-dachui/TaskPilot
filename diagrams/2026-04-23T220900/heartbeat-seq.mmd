@@ -1,0 +1,16 @@
+sequenceDiagram
+    participant HB as 心跳定时器
+    participant A as Agent
+    participant T as TaskPilot CLI
+    participant U as 用户
+
+    HB->>A: 30分钟心跳
+    A->>T: taskpilot heartbeat
+    T-->>A: awareness JSON
+    alt mood=chill
+        A->>A: 静默
+    else mood=gentle_push
+        A->>U: 温和提醒
+    else mood=urgent
+        A->>U: 紧急提醒
+    end

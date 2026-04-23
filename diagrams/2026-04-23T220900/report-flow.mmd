@@ -1,0 +1,16 @@
+sequenceDiagram
+    participant C as Cron 23:30
+    participant A as Agent
+    participant T as TaskPilot CLI
+    participant ANA as analytics
+    participant D as Dida365
+
+    C->>A: 每日总结
+    A->>T: report --data-only
+    T->>D: 拉取任务
+    D-->>T: pending+completed
+    T->>ANA: 计算分析
+    ANA-->>T: analytics数据
+    T-->>A: 富数据JSON
+    A->>A: 智能分析+建议
+    A-->>U: 结构化日报

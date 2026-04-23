@@ -1,0 +1,15 @@
+flowchart TD
+    CLI["cli.py"] --> CFG["config.py"]
+    CLI --> BRIDGE["dida_bridge.py"]
+    CLI --> TASK["task_ops.py"]
+    CLI --> PROG["progress.py"]
+    CLI --> RPT["reporter.py"]
+    CLI --> ANA["analytics.py"]
+    CLI --> STATE["state.py"]
+    TASK --> BRIDGE
+    PROG --> BRIDGE
+    RPT --> ANA
+    RPT --> PROG
+    ANA --> STATE
+    ANA --> PROG
+    BRIDGE --> VENDOR["dida365_lib"]

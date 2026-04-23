@@ -1,0 +1,17 @@
+flowchart TB
+    subgraph Projects["滴答清单项目"]
+        WORK["工作\ncategory:work"]
+        LIFE["fy\ncategory:life"]
+        RPT["Reports\n日报存储"]
+    end
+
+    subgraph Route["任务路由"]
+        CAT{"category?"}
+    end
+
+    CAT -->|work| WORK
+    CAT -->|life| LIFE
+
+    LIST["tasks list\n跨项目聚合"] --> WORK
+    LIST --> LIFE
+    REPORT["report\n全局日报"] --> RPT

@@ -1,0 +1,35 @@
+flowchart TB
+    subgraph User["用户"]
+        MSG["消息/指令"]
+    end
+
+    subgraph OpenClaw["OpenClaw Agent"]
+        SOUL["SOUL.md"]
+        SKILL["SKILL.md\n决策树+拆解"]
+        HB["HEARTBEAT.md\nmood系统"]
+        CRON["Cron x4"]
+    end
+
+    subgraph CLI["TaskPilot CLI"]
+        ANA["analytics.py\n感知引擎"]
+        TASK["task_ops.py"]
+        PROG["progress.py"]
+        RPT["reporter.py"]
+        STATE["state.py"]
+    end
+
+    subgraph Dida["滴答清单"]
+        API["Dida365 API"]
+    end
+
+    MSG --> SOUL
+    SOUL --> SKILL
+    HB -->|每30分| ANA
+    CRON -->|定时| PROG
+    SKILL --> TASK
+    SKILL --> RPT
+    ANA --> STATE
+    ANA --> PROG
+    TASK --> API
+    PROG --> API
+    RPT --> ANA

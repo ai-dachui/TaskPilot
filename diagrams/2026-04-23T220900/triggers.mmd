@@ -1,0 +1,26 @@
+flowchart TB
+    subgraph Cron["Cron 定点检查"]
+        M["08:30 规划"]
+        A["14:00 调整"]
+        E["20:00 提醒"]
+        S["23:30 总结"]
+    end
+
+    subgraph HB["心跳 持续巡逻"]
+        TICK["每30分触发"]
+        READ["读HEARTBEAT.md"]
+        RUN["taskpilot heartbeat"]
+        DECIDE{"should_alert?"}
+        SILENT["静默"]
+        ACT["根据mood行动"]
+    end
+
+    TICK --> READ --> RUN --> DECIDE
+    DECIDE -->|false| SILENT
+    DECIDE -->|true| ACT
+
+    M --> PLAN["规划今日"]
+    A --> CHECK["检查阻塞"]
+    E --> SPRINT["冲刺/收工"]
+    S --> REVIEW["日报复盘"]
+    ACT --> REMIND["主动提醒"]

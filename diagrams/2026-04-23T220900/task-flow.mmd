@@ -1,0 +1,13 @@
+sequenceDiagram
+    participant U as 用户
+    participant A as Agent
+    participant T as TaskPilot CLI
+    participant D as Dida365
+
+    U->>A: 帮我规划产品发布
+    A->>A: 4步拆解框架
+    A->>T: tasks create
+    T->>D: create_task x N
+    D-->>T: task IDs
+    T-->>A: created JSON
+    A-->>U: 已创建5个子任务

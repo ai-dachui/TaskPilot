@@ -1,0 +1,8 @@
+flowchart TD
+    START["心跳触发"] --> CHECK_URGENT{"p5逾期\n或alert异常?"}
+    CHECK_URGENT -->|是| URGENT["urgent\n直接说重点"]
+    CHECK_URGENT -->|否| CHECK_ISSUE{"有逾期/warning\n或间隔>3h?"}
+    CHECK_ISSUE -->|是| GENTLE["gentle_push\n温和提醒"]
+    CHECK_ISSUE -->|否| CHECK_GOOD{"streak>=3\n或rate>70%?"}
+    CHECK_GOOD -->|是| ENCOURAGE["encouraging\n简短鼓励"]
+    CHECK_GOOD -->|否| CHILL["chill\n静默不扰"]
