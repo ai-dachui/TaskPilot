@@ -1,4 +1,4 @@
-"""Daily report generation: query data, render Markdown, sync to Dida365."""
+"""Daily report generation: multi-project aggregation, data-only mode for Agent."""
 
 from __future__ import annotations
 
@@ -21,8 +21,13 @@ def generate_report(
     *,
     date: Optional[str] = None,
     base_dir: Optional[str] = None,
+    data_only: bool = False,
 ) -> dict:
-    """Generate daily report: Markdown file + Dida365 sync."""
+    """Generate daily report.
+
+    If data_only=True, return raw data JSON for Agent to render with intelligence.
+    Otherwise, render Markdown + sync to Dida365.
+    """
     from zoneinfo import ZoneInfo
 
     now = datetime.now(ZoneInfo(config.timezone))
@@ -33,14 +38,42 @@ def generate_report(
     date_str = target.strftime("%Y-%m-%d")
     weekday = WEEKDAY_NAMES[target.weekday()]
 
-    # Gather progress data (includes raw task lists)
+    # Gather progress data across all managed projects
     progress = check_progress(bridge, config, date="today" if date is None else date)
 
-    # Reuse task lists from progress — no extra API calls
     pending_tasks = progress.pop("_pending_tasks", [])
     completed_tasks = progress.pop("_completed_tasks", [])
 
-    # Render sections
+    if data_only:
+        # Return structured data for Agent to render with intelligent analysis
+        return {
+            "date": date_str,
+            "weekday": weekday,
+            "progress": progress,
+            "pending_tasks": [
+                {
+                    "title": t.get("title", "?"),
+                    "priority": t.get("priority", 0),
+                    "due_date": t.get("dueDate"),
+                    "project": t.get("_project_name", "?"),
+                    "category": t.get("_category", "?"),
+                    "tags": t.get("tags", []),
+                }
+                for t in pending_tasks
+            ],
+            "completed_tasks": [
+                {
+                    "title": t.get("title", "?"),
+                    "priority": t.get("priority", 0),
+                    "project": t.get("_project_name", "?"),
+                    "category": t.get("_category", "?"),
+                    "tags": t.get("tags", []),
+                }
+                for t in completed_tasks
+            ],
+        }
+
+    # Full render mode: Markdown + sync
     completed_lines = _render_task_list(completed_tasks) or "- (无)"
     in_progress = [t for t in pending_tasks if t.get("priority", 0) >= 3]
     in_progress_lines = _render_task_list(in_progress) or "- (无)"
@@ -49,7 +82,12 @@ def generate_report(
 
     blockers_text = "\n".join(f"- {b}" for b in progress["blockers"]) if progress["blockers"] else "- 无阻塞"
 
-    # Build Markdown
+    # Per-project breakdown
+    project_breakdown = "\n".join(
+        f"- {ps['project']}({ps['category']}): {ps['completed']}/{ps['total']}"
+        for ps in progress.get("project_stats", [])
+    ) or "- (无项目数据)"
+
     md = _build_markdown(
         date=date_str,
         weekday=weekday,
@@ -60,8 +98,10 @@ def generate_report(
         pending_tasks=pending_lines,
         completion_rate=progress["rate"],
         overdue_count=progress["overdue"],
-        work_ratio=progress["work_count"],
-        life_ratio=progress["life_count"],
+        work_count=progress["work_count"],
+        life_count=progress["life_count"],
+        no_due_count=progress.get("no_due_count", 0),
+        project_breakdown=project_breakdown,
         blockers_analysis=blockers_text,
         tomorrow_suggestions="(由 Agent 根据以上数据生成)",
     )
@@ -72,7 +112,7 @@ def generate_report(
     report_path = reports_dir / f"{date_str}.md"
     report_path.write_text(md, encoding="utf-8")
 
-    # Sync to Dida365 Reports project
+    # Sync to Dida365
     sync_result = _sync_to_dida(bridge, config, date_str, md)
 
     return {
@@ -88,10 +128,12 @@ def _render_task_list(tasks: list[dict]) -> str:
     for t in tasks:
         title = t.get("title", "?")
         priority = t.get("priority", 0)
+        project = t.get("_project_name", "")
         tags = t.get("tags") or []
         tag_str = " ".join(f"#{tag}" for tag in tags) if tags else ""
         pri_str = {5: "[高]", 3: "[中]", 1: "[低]"}.get(priority, "")
-        line = f"- {pri_str} {title}"
+        proj_str = f"[{project}]" if project else ""
+        line = f"- {pri_str} {title} {proj_str}"
         if tag_str:
             line += f" {tag_str}"
         lines.append(line.strip())
@@ -99,45 +141,39 @@ def _render_task_list(tasks: list[dict]) -> str:
 
 
 def _build_markdown(**kwargs) -> str:
-    template = Path(__file__).parent / "templates" / "report.md"
-    if template.exists():
-        text = template.read_text(encoding="utf-8")
-        for key, value in kwargs.items():
-            text = text.replace(f"{{{key}}}", str(value))
-        return text
-
-    # Fallback inline template
     return f"""# 日报: {kwargs['date']} ({kwargs['weekday']})
 
 ## 完成 ({kwargs['completed_count']}/{kwargs['total_count']})
 {kwargs['completed_tasks']}
 
-## 进行中
+## 进行中（优先级≥3）
 {kwargs['in_progress_tasks']}
 
-## 未开始/逾期
+## 未开始/低优先级
 {kwargs['pending_tasks']}
+
+## 各项目进度
+{kwargs['project_breakdown']}
 
 ## 数据分析
 - 完成率: {kwargs['completion_rate']}%
 - 逾期任务: {kwargs['overdue_count']} 个
-- 工作/生活比: {kwargs['work_ratio']}:{kwargs['life_ratio']}
+- 工作任务: {kwargs['work_count']} | 生活任务: {kwargs['life_count']}
+- 无截止日期: {kwargs['no_due_count']} 个
 
 ## 问题与阻塞
 {kwargs['blockers_analysis']}
 
 ## 明日建议
-(由 Agent 根据以上数据生成)
+{kwargs['tomorrow_suggestions']}
 """
 
 
 def _sync_to_dida(bridge: DidaBridge, config: Config, date_str: str, content: str) -> dict:
-    """Create or update a NOTE task in the Reports project with the report content."""
     try:
         report_project_id = _ensure_project(bridge, config.dida365.report_project)
         title = f"日报: {date_str}"
 
-        # Check for existing report to avoid duplicates
         existing = bridge.filter_tasks(project_ids=[report_project_id])
         for task in existing:
             if task.get("title") == title:

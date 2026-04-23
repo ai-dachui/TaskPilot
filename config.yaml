@@ -6,15 +6,22 @@ checkpoints:
   morning: "08:30"
   afternoon: "14:00"
   evening: "20:00"
+  summary: "23:30"
+
+# 多项目管理：工作 + 个人生活
+managed_projects:
+  - name: "工作"
+    category: "work"
+  - name: "fy"
+    category: "life"
+
 dida365:
-  project_name: "TaskPilot"
   report_project: "Reports"
   tags:
     work: "work"
     life: "life"
-  # client_id: ""       # Or set DIDA365_CLIENT_ID env var
-  # client_secret: ""   # Or set DIDA365_CLIENT_SECRET env var
-  # token_path: ""      # Or set DIDA365_TOKEN_PATH env var
+
 reports_dir: "reports"
+state_file: "state.json"
 token_budget:
   checkpoint_max_tokens: 2000

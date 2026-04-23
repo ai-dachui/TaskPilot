@@ -25,13 +25,16 @@ def cmd_token_check(args, bridge, config):
 
 def cmd_tasks_list(args, bridge, config):
     from .task_ops import list_tasks
-    result = list_tasks(bridge, config, date=args.date, status=args.status, tag=args.tag)
+    result = list_tasks(
+        bridge, config,
+        date=args.date, status=args.status, tag=args.tag,
+        project=args.project, category=args.category,
+    )
     _json_out(result)
 
 
 def cmd_tasks_create(args, bridge, config):
     from .task_ops import create_tasks
-    # Read JSON from stdin
     raw = sys.stdin.read()
     try:
         tasks_data = json.loads(raw)
@@ -41,7 +44,10 @@ def cmd_tasks_create(args, bridge, config):
     if not isinstance(tasks_data, list):
         _error_out("expected_array", {"got": type(tasks_data).__name__})
         sys.exit(1)
-    result = create_tasks(bridge, config, tasks_data, project_name=args.project)
+    result = create_tasks(
+        bridge, config, tasks_data,
+        project_name=args.project, category=args.category,
+    )
     _json_out(result)
 
 
@@ -50,7 +56,7 @@ def cmd_tasks_complete(args, bridge, config):
     if args.project_id:
         project_id = args.project_id
     else:
-        project_name = args.project or config.dida365.project_name
+        project_name = args.project or config.managed_projects[0].name
         project_id = _ensure_project(bridge, project_name)
     result = complete_task(bridge, project_id, args.id)
     _json_out(result)
@@ -61,7 +67,7 @@ def cmd_tasks_update(args, bridge, config):
     if args.project_id:
         project_id = args.project_id
     else:
-        project_name = args.project or config.dida365.project_name
+        project_name = args.project or config.managed_projects[0].name
         project_id = _ensure_project(bridge, project_name)
     kwargs = {}
     if args.title is not None:
@@ -83,7 +89,7 @@ def cmd_tasks_delete(args, bridge, config):
     if args.project_id:
         project_id = args.project_id
     else:
-        project_name = args.project or config.dida365.project_name
+        project_name = args.project or config.managed_projects[0].name
         project_id = _ensure_project(bridge, project_name)
     result = delete_task(bridge, project_id, args.id)
     _json_out(result)
@@ -91,14 +97,30 @@ def cmd_tasks_delete(args, bridge, config):
 
 def cmd_progress(args, bridge, config):
     from .progress import check_progress
-    result = check_progress(bridge, config, date=args.date)
+    result = check_progress(bridge, config, date=args.date, category=args.category)
+    _json_out(result)
+
+
+def cmd_forecast(args, bridge, config):
+    from .progress import forecast
+    result = forecast(bridge, config, days=args.days)
     _json_out(result)
 
 
 def cmd_report(args, bridge, config):
     from .reporter import generate_report
-    result = generate_report(bridge, config, date=args.date, base_dir=args.base_dir)
+    result = generate_report(
+        bridge, config,
+        date=args.date, base_dir=args.base_dir,
+        data_only=args.data_only,
+    )
     _json_out(result)
+
+
+def cmd_state(args, bridge, config):
+    from .state import load_state
+    state = load_state(config)
+    _json_out(state.to_dict())
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -118,52 +140,66 @@ def build_parser() -> argparse.ArgumentParser:
 
     # tasks list
     tl = tasks_sub.add_parser("list", help="List tasks")
-    tl.add_argument("--date", default="today", help="Date filter: today or YYYY-MM-DD")
-    tl.add_argument("--status", default=None, help="Status filter: pending or completed")
-    tl.add_argument("--tag", default=None, help="Tag filter")
+    tl.add_argument("--date", default="today")
+    tl.add_argument("--status", default=None)
+    tl.add_argument("--tag", default=None)
+    tl.add_argument("--project", default=None, help="Filter by project name")
+    tl.add_argument("--category", default=None, help="Filter by category: work or life")
     tl.set_defaults(handler=cmd_tasks_list)
 
     # tasks create
     tcr = tasks_sub.add_parser("create", help="Create tasks from JSON stdin")
-    tcr.add_argument("--project", default=None, help="Project name override")
+    tcr.add_argument("--project", default=None, help="Target project name")
+    tcr.add_argument("--category", default=None, help="Target category: work or life")
     tcr.set_defaults(handler=cmd_tasks_create)
 
     # tasks complete
     tco = tasks_sub.add_parser("complete", help="Complete a task")
-    tco.add_argument("--id", required=True, help="Task ID")
-    tco.add_argument("--project", default=None, help="Project name (resolved automatically)")
-    tco.add_argument("--project-id", default=None, help="Project ID (shortcut, skips resolution)")
+    tco.add_argument("--id", required=True)
+    tco.add_argument("--project", default=None)
+    tco.add_argument("--project-id", default=None)
     tco.set_defaults(handler=cmd_tasks_complete)
 
     # tasks update
     tu = tasks_sub.add_parser("update", help="Update a task")
-    tu.add_argument("--id", required=True, help="Task ID")
-    tu.add_argument("--project", default=None, help="Project name")
-    tu.add_argument("--project-id", default=None, help="Project ID (shortcut)")
-    tu.add_argument("--title", default=None, help="New title")
-    tu.add_argument("--priority", type=int, default=None, help="New priority (0-5)")
-    tu.add_argument("--due", default=None, help="New due date (ISO format)")
-    tu.add_argument("--tags", nargs="*", default=None, help="New tags")
-    tu.add_argument("--content", default=None, help="New description")
+    tu.add_argument("--id", required=True)
+    tu.add_argument("--project", default=None)
+    tu.add_argument("--project-id", default=None)
+    tu.add_argument("--title", default=None)
+    tu.add_argument("--priority", type=int, default=None)
+    tu.add_argument("--due", default=None)
+    tu.add_argument("--tags", nargs="*", default=None)
+    tu.add_argument("--content", default=None)
     tu.set_defaults(handler=cmd_tasks_update)
 
     # tasks delete
     td = tasks_sub.add_parser("delete", help="Delete a task")
-    td.add_argument("--id", required=True, help="Task ID")
-    td.add_argument("--project", default=None, help="Project name")
-    td.add_argument("--project-id", default=None, help="Project ID (shortcut)")
+    td.add_argument("--id", required=True)
+    td.add_argument("--project", default=None)
+    td.add_argument("--project-id", default=None)
     td.set_defaults(handler=cmd_tasks_delete)
 
     # progress
     pg = sub.add_parser("progress", help="Check progress stats")
-    pg.add_argument("--date", default="today", help="Date: today or YYYY-MM-DD")
+    pg.add_argument("--date", default="today")
+    pg.add_argument("--category", default=None, help="Filter: work or life")
     pg.set_defaults(handler=cmd_progress)
+
+    # forecast
+    fc = sub.add_parser("forecast", help="Look-ahead risk alerts")
+    fc.add_argument("--days", type=int, default=7)
+    fc.set_defaults(handler=cmd_forecast)
 
     # report
     rp = sub.add_parser("report", help="Generate daily report")
-    rp.add_argument("--date", default=None, help="Date: YYYY-MM-DD (default: today)")
-    rp.add_argument("--base-dir", default=".", help="Base directory for reports")
+    rp.add_argument("--date", default=None)
+    rp.add_argument("--base-dir", default=".")
+    rp.add_argument("--data-only", action="store_true", help="Output raw data JSON for Agent rendering")
     rp.set_defaults(handler=cmd_report)
+
+    # state
+    st = sub.add_parser("state", help="Show current state")
+    st.set_defaults(handler=cmd_state)
 
     return parser
 
